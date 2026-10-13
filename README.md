@@ -28,7 +28,7 @@ Run the engine tests: `python tests/test_engine.py`
 4. Share the `https://…onrender.com` URL. Each friend enters the room code plus their own name/password (accounts are created on first login).
 
 Notes:
-- The **Starter** plan (~$7/mo) is used because it keeps a persistent disk for the ledger and history. On the free plan the database resets whenever the service restarts or sleeps, and the first visit after idling takes ~30s to wake.
+- The smallest paid plan (`0.5c-512mb`) is used because it keeps a persistent disk for the ledger and history. On the free plan the database resets whenever the service restarts or sleeps, and the first visit after idling takes ~30s to wake.
 - Keep it to **one instance / one worker** — live game state is in memory.
 - Railway or Fly.io also work: start command `uvicorn server:app --host 0.0.0.0 --port $PORT`, mount a volume, and point `DB_PATH` at it.
 
