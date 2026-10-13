@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: home-game-poker
+    runtime: python
+    plan: starter            # needed for the persistent disk below (~$7/mo)
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /healthz
+    envVars:
+      - key: ROOM_CODE        # the shared password your friends type to get in
+        sync: false
+      - key: DB_PATH
+        value: /var/data/poker.db
+      - key: PYTHON_VERSION
+        value: 3.12.6
+    disk:
+      name: poker-data
+      mountPath: /var/data
+      sizeGB: 1

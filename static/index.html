@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1411">
+<title>Home Game</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+
+  <section id="login" class="view hidden">
+    <div class="login-box">
+      <div class="logo">♠♥♦♣</div>
+      <h1>Home Game</h1>
+      <p class="muted">Private tables for the crew</p>
+      <form id="loginForm">
+        <label>Room code<input id="roomCode" required autocomplete="off" autocapitalize="off"></label>
+        <label>Screen name<input id="loginName" required maxlength="16" autocapitalize="off"></label>
+        <label>Password<input id="loginPw" type="password" required minlength="4"></label>
+        <button type="submit" class="btn primary wide">Enter</button>
+        <p class="muted small">First time? Pick any name and password — the account is created when you enter.</p>
+        <p id="loginErr" class="err"></p>
+      </form>
+    </div>
+  </section>
+
+  <section id="lobby" class="view hidden">
+    <header class="topbar">
+      <div class="brand">♠ Home Game</div>
+      <div class="who"><span id="whoami"></span><button id="logoutBtn" class="btn ghost small">Log out</button></div>
+    </header>
+    <div class="lobby-grid">
+      <div class="panel">
+        <div class="panel-head"><h2>Tables</h2><button id="newTableBtn" class="btn primary small">+ New table</button></div>
+        <div id="tableList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Ledger</h2><button id="settleBtn" class="btn ghost small">Mark settled</button></div>
+        <div class="ledger-wrap">
+          <table class="ledger">
+            <thead><tr><th>Player</th><th>In</th><th>Out</th><th>On table</th><th>Net</th></tr></thead>
+            <tbody id="ledgerBody"></tbody>
+          </table>
+        </div>
+        <p class="muted small">Net = cashed out + chips on table − bought in. "Mark settled" zeroes it after you square up.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="tableView" class="view hidden">
+    <header class="topbar">
+      <button id="backBtn" class="btn ghost small">← Lobby</button>
+      <div class="table-title"><span id="tName"></span> <span id="tStakes" class="muted"></span></div>
+      <button id="historyBtn" class="btn ghost small">History</button>
+    </header>
+    <div class="felt-wrap">
+      <div id="felt" class="felt">
+        <div id="pot" class="pot"></div>
+        <div id="board" class="board"></div>
+        <div id="result" class="result"></div>
+      </div>
+    </div>
+    <div id="actionBar" class="action-bar"></div>
+    <div id="myControls" class="my-controls"></div>
+    <div class="tabs">
+      <button data-tab="chat" class="tab active">Chat</button>
+      <button data-tab="log" class="tab">This hand</button>
+    </div>
+    <div id="chatPane" class="pane">
+      <div id="chatLog" class="chat-log"></div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" maxlength="300" placeholder="Say something…" autocomplete="off">
+        <button class="btn small">Send</button>
+      </form>
+    </div>
+    <div id="logPane" class="pane hidden"><pre id="handLog" class="hand-log"></pre></div>
+  </section>
+</div>
+
+<div id="modal" class="modal hidden"><div class="modal-box" id="modalBox"></div></div>
+<div id="toast" class="toast hidden"></div>
+<div id="conn" class="conn hidden">Reconnecting…</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
