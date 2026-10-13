@@ -112,6 +112,13 @@ function formModal(title, fields, submitLabel, onSubmit) {
   const f = el('form', 'form-grid');
   const inputs = {};
   for (const fd of fields) {
+    if (fd.type === 'checkbox') {
+      const lab = el('label', 'check-row full');
+      const inp = el('input'); inp.type = 'checkbox'; inp.checked = !!fd.value;
+      lab.append(inp, el('span', null, fd.label));
+      if (fd.hint) lab.append(el('div', 'muted small', fd.hint));
+      f.append(lab); inputs[fd.key] = inp; continue;
+    }
     const lab = el('label', fd.full ? 'full' : null, fd.label);
     const inp = el('input');
     inp.type = fd.type || 'number';
@@ -130,7 +137,10 @@ function formModal(title, fields, submitLabel, onSubmit) {
   f.onsubmit = e => {
     e.preventDefault();
     const vals = {};
-    for (const k in inputs) vals[k] = inputs[k].type === 'number' ? Number(inputs[k].value) : inputs[k].value.trim();
+    for (const k in inputs) {
+      const i = inputs[k];
+      vals[k] = i.type === 'checkbox' ? i.checked : i.type === 'number' ? Number(i.value) : i.value.trim();
+    }
     closeModal(); onSubmit(vals);
   };
   box.append(f); openModal();
@@ -146,14 +156,16 @@ function renderLobby() {
   for (const t of L.tables) {
     const row = el('div', 'table-row');
     const info = el('div', 'info');
-    info.append(el('div', 'tname', t.name),
+    const tn = el('div', 'tname', t.name);
+    if (t.practice) tn.append(el('span', 'badge', 'Practice'));
+    info.append(tn,
       el('div', 'muted small', `NLH ${fmt(t.sb)}/${fmt(t.bb)} · buy-in ${fmt(t.min_buy)}–${fmt(t.max_buy)} · ${t.players.length}/${t.max_seats} seated`));
     if (t.players.length) info.append(el('div', 'small players', t.players.join(', ')));
     const btns = el('div', 'btns');
     const open = el('button', 'btn primary small', 'Open');
     open.onclick = () => { location.hash = '#t=' + encodeURIComponent(t.id); };
     btns.append(open);
-    if (t.creator === S.name && !t.players.length) {
+    if (t.creator === S.name && !(t.humans || t.players).length) {
       const x = el('button', 'btn ghost small', 'Close');
       x.onclick = () => { if (confirm(`Close "${t.name}"?`)) send({ type: 'close_table', table_id: t.id }); };
       btns.append(x);
@@ -180,6 +192,8 @@ $('#newTableBtn').onclick = () => formModal('New cash table', [
   { key: 'max_buy', label: 'Max buy-in', value: 200, min: 1 },
   { key: 'max_seats', label: 'Seats (2–9)', value: 9, min: 2, max: 9 },
   { key: 'timeout', label: 'Turn timer (sec)', value: 30, min: 10, max: 120 },
+  { key: 'practice', type: 'checkbox', label: 'Practice table', value: false,
+    hint: 'Allows bots. Chips here never count on the ledger.' },
 ], 'Create', v => send({ type: 'create_table', ...v }));
 
 $('#settleBtn').onclick = () => {
@@ -209,7 +223,7 @@ function clearFelt() {
 function renderTable() {
   const t = S.table; if (!t) return;
   $('#tName').textContent = t.name;
-  $('#tStakes').textContent = `NLH ${fmt(t.sb)}/${fmt(t.bb)}`;
+  $('#tStakes').textContent = `NLH ${fmt(t.sb)}/${fmt(t.bb)}${t.practice ? ' · Practice' : ''}`;
   const felt = $('#felt');
   felt.querySelectorAll('.seat, .bet, .dealer').forEach(e => e.remove());
   const portrait = window.innerHeight > window.innerWidth;
@@ -223,7 +237,8 @@ function renderTable() {
     d.style.left = x + '%'; d.style.top = y + '%';
     if (!s) {
       if (t.me == null) { const b = el('button', 'btn sit', 'Sit'); b.onclick = () => sitModal(i); d.append(b); }
-      else { d.classList.add('empty'); d.append(el('div', 'empty-dot')); }
+      if (t.practice) { const b = el('button', 'btn sit bot', '+ Bot'); b.onclick = () => botModal(i); d.append(b); }
+      if (t.me != null && !t.practice) { d.classList.add('empty'); d.append(el('div', 'empty-dot')); }
       felt.append(d); return;
     }
     if (s.is_you) d.classList.add('me');
@@ -235,7 +250,14 @@ function renderTable() {
     s.cards.forEach(c => cards.append(cardEl(c, s.is_you)));
     d.append(cards);
     const plate = el('div', 'plate');
-    plate.append(el('div', 'pname', s.name), el('div', 'pstack', fmt(s.stack)));
+    const pn = el('div', 'pname', s.name);
+    if (s.bot) pn.prepend(el('span', 'bot-tag', 'BOT'));
+    plate.append(pn, el('div', 'pstack', fmt(s.stack)));
+    if (s.bot && t.practice && !s.leaving) {
+      const x = el('button', 'rm-bot', '×'); x.title = 'Remove bot';
+      x.onclick = () => send({ type: 'remove_bot', seat: i });
+      plate.append(x);
+    }
     if (t.current === i) { const tm = el('div', 'timer'); tm.append(el('div', 'fill')); plate.append(tm); }
     d.append(plate);
     let status = '';
@@ -347,6 +369,25 @@ function buildMyControls(t) {
     box.append(add);
   }
   if (s.pending) box.append(el('span', 'muted small', `+${fmt(s.pending)} after this hand`));
+}
+
+function botModal(i) {
+  const box = $('#modalBox'); box.innerHTML = '';
+  box.append(el('h3', null, `Add a bot to seat ${i + 1}`));
+  const styles = [
+    ['rock', 'Rock', 'Tight. Plays few hands, rarely bluffs.'],
+    ['shark', 'Shark', 'Solid and balanced. Bluffs sometimes.'],
+    ['maniac', 'Maniac', 'Loose and aggressive. Bets and bluffs a lot.'],
+    ['random', 'Surprise me', 'Random style.'],
+  ];
+  for (const [key, label, desc] of styles) {
+    const b = el('button', 'btn style-pick');
+    b.append(el('div', 'tname', label), el('div', 'muted small', desc));
+    b.onclick = () => { closeModal(); send({ type: 'add_bot', seat: i, style: key }); };
+    box.append(b);
+  }
+  const c = el('button', 'btn ghost wide', 'Cancel'); c.onclick = closeModal; box.append(c);
+  openModal();
 }
 
 function sitModal(i) {

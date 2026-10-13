@@ -548,6 +548,7 @@ class Table:
                 "all_in": s.all_in, "in_hand": s.in_hand, "sitting_out": s.sitting_out,
                 "last_action": s.last_action, "cards": cards, "is_you": mine,
                 "leaving": s.leave_after_hand, "pending": s.pending_chips,
+                "bot": str(s.pid).startswith("bot:"),
             })
         v = {
             "id": self.id, "name": self.name, "sb": self.sb, "bb": self.bb,

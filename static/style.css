@@ -152,3 +152,18 @@ label input { margin-top: 4px; }
   color: #ffd0d2; padding: 9px 16px; border-radius: 10px; z-index: 60; font-weight: 600; max-width: 90vw; text-align: center; }
 .conn { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); background: #2b2612; border: 1px solid var(--gold);
   color: #ffe9a8; padding: 6px 14px; border-radius: 10px; z-index: 60; font-size: 13px; }
+
+/* ---- practice / bots */
+.badge { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 700; color: #062014; background: var(--gold);
+  border-radius: 6px; padding: 1px 6px; vertical-align: 2px; }
+.check-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
+.check-row input { width: 18px; height: 18px; margin: 0; }
+.check-row .muted { width: 100%; margin-top: -4px; }
+.seat .btn.sit.bot { display: block; margin: 4px auto 0; padding: 5px 10px; font-size: 12px; color: var(--muted); }
+.rm-bot { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--panel2); color: var(--text); font-size: 14px; line-height: 1; cursor: pointer; padding: 0; }
+.style-pick { display: block; width: 100%; text-align: left; margin-bottom: 8px; padding: 10px 12px; }
+.bot-tag { font-size: 9px; font-weight: 800; color: #062014; background: var(--muted); border-radius: 4px; padding: 0 3px; margin-right: 3px; vertical-align: 1px; }
+.topbar > .btn { white-space: nowrap; flex-shrink: 0; }
+.table-title { flex: 1; min-width: 0; }
+@media (max-width: 480px) { #tStakes { display: block; font-size: 12px; } }

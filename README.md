@@ -9,6 +9,7 @@ A Donkhouse-style web app: a lobby of cash tables, real-time play in the browser
 - **Stand up / sit out / add chips / rebuy**. Standing mid-hand folds you and cashes you out when the hand ends.
 - **Bet sizing**: Min, ½, ¾, Pot, All-in presets plus slider. Pre-action "Check / Fold" box.
 - **Chat**, current-hand log, and saved **hand history**.
+- **Practice tables with bots**: tick "Practice table" when creating a table, then tap **+ Bot** on any empty seat (Rock = tight, Shark = balanced, Maniac = loose/aggressive). Bots rebuy automatically, hands only deal while a human is seated, and practice chips never touch the ledger.
 - **Ledger**: buy-ins, cash-outs, chips on table, net per player. "Mark settled" zeroes it once everyone's standing.
 - Hole cards are dealt server-side and only sent to their owner (and to everyone at showdown / all-in).
 - If the server restarts mid-session, everyone seated is cashed out at their stack from the start of that hand, so the ledger stays balanced.
@@ -34,6 +35,7 @@ Notes:
 
 ## Files
 - `engine.py` — the poker rules (pure Python, no I/O)
+- `bots.py` — practice bots (equity simulation + play style)
 - `server.py` — FastAPI + WebSockets: lobby, tables, timers, ledger
 - `db.py` — SQLite (accounts, ledger, hand history)
 - `static/` — the web client (plain HTML/CSS/JS)
