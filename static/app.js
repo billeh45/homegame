@@ -438,6 +438,18 @@ $('#historyBtn').onclick = async () => {
   box.append(wrap, c); openModal();
 };
 
+// ------------------------------------------------------------ table design toggle (per device)
+function setTheme(n) {
+  n = ['1', '2', '3', '4'].includes(String(n)) ? String(n) : '1';
+  $('#felt').dataset.theme = n;
+  document.querySelectorAll('#themePick button').forEach(b => b.classList.toggle('on', b.dataset.theme === n));
+  try { localStorage.setItem('hg_theme', n); } catch (e) { /* storage blocked: still works this visit */ }
+}
+document.querySelectorAll('#themePick button').forEach(b => b.onclick = () => setTheme(b.dataset.theme));
+let savedTheme = '1';
+try { savedTheme = localStorage.getItem('hg_theme') || '1'; } catch (e) { /* ignore */ }
+setTheme(savedTheme);
+
 // ------------------------------------------------------------ boot
 if (S.token) connect();
 route();

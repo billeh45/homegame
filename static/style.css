@@ -167,3 +167,35 @@ label input { margin-top: 4px; }
 .topbar > .btn { white-space: nowrap; flex-shrink: 0; }
 .table-title { flex: 1; min-width: 0; }
 @media (max-width: 480px) { #tStakes { display: block; font-size: 12px; } }
+
+/* ---- table designs (toggle: Table 1-4) */
+.felt[data-theme]:not([data-theme="1"])::before {
+  background-size: cover; background-repeat: no-repeat;
+  background-color: #1b6845;
+}
+.felt[data-theme="2"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/2.jpg);
+  background-position: center, center 14%;
+}
+.felt[data-theme="3"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/3.jpg);
+  background-position: center, center 42%;
+}
+.felt[data-theme="4"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/4.jpg);
+  background-position: center, center 40%;
+}
+.felt[data-theme]:not([data-theme="1"]) .pot, .felt[data-theme]:not([data-theme="1"]) .result {
+  background: rgba(0,0,0,.6); padding: 2px 10px; border-radius: 10px;
+}
+.theme-pick { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 14px auto 2px; }
+.theme-pick button { width: 32px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2);
+  color: var(--muted); font: inherit; font-weight: 700; font-size: 13px; cursor: pointer; padding: 0; }
+.theme-pick button.on { background: var(--accent); border-color: var(--accent); color: #062014; }
+@media (min-aspect-ratio: 1/1) {
+  #felt[data-theme="3"]::before {
+    background-size: cover, auto 112%; background-position: center, center 55%;
+    background-color: #134d33;
+  }
+  #felt[data-theme="4"]::before { background-position: center, center 48%; }
+}
