@@ -16,6 +16,17 @@ function el(tag, cls, text) {
   return e;
 }
 const fmt = n => Number(n).toLocaleString();
+// Money: a table's chips are whole dollars ("dollars") or cents ("cents"). The ledger is always in cents.
+const perChip = u => (u === 'cents' ? 100 : 1);              // chips per $1
+const twoDp = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+const money = (n, u) => {
+  const neg = n < 0 ? '-' : ''; n = Math.abs(n);
+  return neg + '$' + (u === 'cents' ? (n / 100).toLocaleString(undefined, twoDp) : Number(n).toLocaleString());
+};
+const cents = n => money(n, 'cents');
+const M = n => money(n, S.table && S.table.unit);             // amounts at the open table
+const toChips = (dollars, u) => Math.round(Number(dollars) * perChip(u));
+const toDollars = (chips, u) => chips / perChip(u);
 function show(id) { for (const v of ['login', 'lobby', 'tableView']) $('#' + v).classList.toggle('hidden', v !== id); }
 function toast(msg, ms = 2800) {
   const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
@@ -119,10 +130,26 @@ function formModal(title, fields, submitLabel, onSubmit) {
       if (fd.hint) lab.append(el('div', 'muted small', fd.hint));
       f.append(lab); inputs[fd.key] = inp; continue;
     }
+    if (fd.type === 'seg') {
+      const wrap = el('div', 'seg-row full');
+      wrap.append(el('div', 'seg-label', fd.label));
+      const seg = el('div', 'seg');
+      const holder = { type: 'seg', value: fd.value };
+      for (const [val, text] of fd.options) {
+        const b = el('button', 'seg-btn' + (val === fd.value ? ' on' : ''), text); b.type = 'button';
+        b.onclick = () => {
+          holder.value = val;
+          seg.querySelectorAll('.seg-btn').forEach(x => x.classList.toggle('on', x === b));
+          if (fd.onChange) fd.onChange(val, inputs);
+        };
+        seg.append(b);
+      }
+      wrap.append(seg); f.append(wrap); inputs[fd.key] = holder; continue;
+    }
     const lab = el('label', fd.full ? 'full' : null, fd.label);
     const inp = el('input');
     inp.type = fd.type || 'number';
-    if (inp.type === 'number') inp.inputMode = 'numeric';
+    if (inp.type === 'number') { inp.inputMode = fd.step && fd.step < 1 ? 'decimal' : 'numeric'; inp.step = fd.step || 1; }
     inp.value = fd.value;
     if (fd.min != null) inp.min = fd.min;
     if (fd.max != null) inp.max = fd.max;
@@ -139,7 +166,7 @@ function formModal(title, fields, submitLabel, onSubmit) {
     const vals = {};
     for (const k in inputs) {
       const i = inputs[k];
-      vals[k] = i.type === 'checkbox' ? i.checked : i.type === 'number' ? Number(i.value) : i.value.trim();
+      vals[k] = i.type === 'seg' ? i.value : i.type === 'checkbox' ? i.checked : i.type === 'number' ? Number(i.value) : i.value.trim();
     }
     closeModal(); onSubmit(vals);
   };
@@ -159,7 +186,7 @@ function renderLobby() {
     const tn = el('div', 'tname', t.name);
     if (t.practice) tn.append(el('span', 'badge', 'Practice'));
     info.append(tn,
-      el('div', 'muted small', `NLH ${fmt(t.sb)}/${fmt(t.bb)} · buy-in ${fmt(t.min_buy)}–${fmt(t.max_buy)} · ${t.players.length}/${t.max_seats} seated`));
+      el('div', 'muted small', `NLH ${money(t.sb, t.unit)}/${money(t.bb, t.unit)} · buy-in ${money(t.min_buy, t.unit)}–${money(t.max_buy, t.unit)} · ${t.players.length}/${t.max_seats} seated`));
     if (t.players.length) info.append(el('div', 'small players', t.players.join(', ')));
     const btns = el('div', 'btns');
     const open = el('button', 'btn primary small', 'Open');
@@ -178,23 +205,40 @@ function renderLobby() {
   }
   for (const r of L.ledger) {
     const tr = el('tr');
-    const net = el('td', r.net > 0 ? 'pos' : r.net < 0 ? 'neg' : '', (r.net > 0 ? '+' : '') + fmt(r.net));
-    tr.append(el('td', null, r.name), el('td', null, fmt(r.buyin)), el('td', null, fmt(r.cashout)), el('td', null, fmt(r.in_play)), net);
+    const net = el('td', r.net > 0 ? 'pos' : r.net < 0 ? 'neg' : '', (r.net > 0 ? '+' : '') + cents(r.net));
+    tr.append(el('td', null, r.name), el('td', null, cents(r.buyin)), el('td', null, cents(r.cashout)), el('td', null, cents(r.in_play)), net);
     body.append(tr);
   }
 }
 
+const STAKE_DEFAULTS = {
+  dollars: { sb: 1, bb: 2, min_buy: 40, max_buy: 200, step: 1, min: 1 },
+  cents: { sb: 0.10, bb: 0.25, min_buy: 10, max_buy: 25, step: 0.01, min: 0.01 },
+};
 $('#newTableBtn').onclick = () => formModal('New cash table', [
   { key: 'name', label: 'Table name', type: 'text', value: `${S.name}'s game`, maxlength: 30, full: true },
-  { key: 'sb', label: 'Small blind', value: 1, min: 1 },
-  { key: 'bb', label: 'Big blind', value: 2, min: 1 },
-  { key: 'min_buy', label: 'Min buy-in', value: 40, min: 1 },
-  { key: 'max_buy', label: 'Max buy-in', value: 200, min: 1 },
+  { key: 'unit', type: 'seg', label: 'Stakes in', value: 'dollars',
+    options: [['dollars', 'Dollars  ($1/$2)'], ['cents', 'Cents  ($0.10/$0.25)']],
+    onChange: (u, inputs) => {
+      const d = STAKE_DEFAULTS[u];
+      for (const k of ['sb', 'bb', 'min_buy', 'max_buy']) {
+        inputs[k].step = d.step; inputs[k].min = d.min;
+        inputs[k].inputMode = u === 'cents' ? 'decimal' : 'numeric';
+        inputs[k].value = u === 'cents' ? d[k].toFixed(2) : d[k];
+      }
+    } },
+  { key: 'sb', label: 'Small blind ($)', value: 1, min: 1 },
+  { key: 'bb', label: 'Big blind ($)', value: 2, min: 1 },
+  { key: 'min_buy', label: 'Min buy-in ($)', value: 40, min: 1 },
+  { key: 'max_buy', label: 'Max buy-in ($)', value: 200, min: 1 },
   { key: 'max_seats', label: 'Seats (2–9)', value: 9, min: 2, max: 9 },
   { key: 'timeout', label: 'Turn timer (sec)', value: 30, min: 10, max: 120 },
   { key: 'practice', type: 'checkbox', label: 'Practice table', value: false,
     hint: 'Allows bots. Chips here never count on the ledger.' },
-], 'Create', v => send({ type: 'create_table', ...v }));
+], 'Create', v => {
+  for (const k of ['sb', 'bb', 'min_buy', 'max_buy']) v[k] = toChips(v[k], v.unit);
+  send({ type: 'create_table', ...v });
+});
 
 $('#settleBtn').onclick = () => {
   if (confirm('Mark everyone as settled up? This zeroes the ledger (everyone must be standing).')) send({ type: 'settle' });
@@ -223,7 +267,7 @@ function clearFelt() {
 function renderTable() {
   const t = S.table; if (!t) return;
   $('#tName').textContent = t.name;
-  $('#tStakes').textContent = `NLH ${fmt(t.sb)}/${fmt(t.bb)}${t.practice ? ' · Practice' : ''}`;
+  $('#tStakes').textContent = `NLH ${M(t.sb)}/${M(t.bb)}${t.practice ? ' · Practice' : ''}`;
   const felt = $('#felt');
   felt.querySelectorAll('.seat, .bet, .dealer').forEach(e => e.remove());
   const portrait = window.innerHeight > window.innerWidth;
@@ -252,7 +296,7 @@ function renderTable() {
     const plate = el('div', 'plate');
     const pn = el('div', 'pname', s.name);
     if (s.bot) pn.prepend(el('span', 'bot-tag', 'BOT'));
-    plate.append(pn, el('div', 'pstack', fmt(s.stack)));
+    plate.append(pn, el('div', 'pstack', M(s.stack)));
     if (s.bot && t.practice && !s.leaving) {
       const x = el('button', 'rm-bot', '×'); x.title = 'Remove bot';
       x.onclick = () => send({ type: 'remove_bot', seat: i });
@@ -270,7 +314,7 @@ function renderTable() {
     felt.append(d);
     if (s.bet > 0) {
       const [bx, by] = seatPos(i, t, R[0] * 0.6, R[1] * 0.55);
-      const b = el('div', 'bet', fmt(s.bet)); b.style.left = bx + '%'; b.style.top = by + '%'; felt.append(b);
+      const b = el('div', 'bet', M(s.bet)); b.style.left = bx + '%'; b.style.top = by + '%'; felt.append(b);
     }
     if (t.button === i) {
       const [dx, dy] = seatPos(i, t, R[0] * 0.72, R[1] * 0.68);
@@ -280,9 +324,9 @@ function renderTable() {
 
   const board = $('#board'); board.innerHTML = '';
   for (let k = 0; k < 5; k++) board.append(t.board[k] ? cardEl(t.board[k]) : el('div', 'card slot'));
-  $('#pot').textContent = t.pot > 0 ? `Pot ${fmt(t.pot)}` : '';
+  $('#pot').textContent = t.pot > 0 ? `Pot ${M(t.pot)}` : '';
   $('#result').textContent = t.results
-    ? t.results.map(r => `${r.winners.join(' & ')} ${r.winners.length > 1 ? 'split' : 'wins'} ${fmt(r.amount)}${r.hand ? ' — ' + r.hand : ''}`).join('\n')
+    ? t.results.map(r => `${r.winners.join(' & ')} ${r.winners.length > 1 ? 'split' : 'wins'} ${M(r.amount)}${r.hand ? ' — ' + r.hand : ''}`).join('\n')
     : '';
   const log = $('#handLog'); log.textContent = t.log.join('\n'); log.scrollTop = log.scrollHeight;
 
@@ -306,21 +350,22 @@ function buildActionBar(t) {
     if (navigator.vibrate) navigator.vibrate(60);
     const row = el('div', 'act-row');
     const fold = el('button', 'btn act fold', 'Fold'); fold.onclick = () => act('fold');
-    const cc = o.can_check ? el('button', 'btn act check', 'Check') : el('button', 'btn act call', `Call ${fmt(o.to_call)}`);
+    const cc = o.can_check ? el('button', 'btn act check', 'Check') : el('button', 'btn act call', `Call ${M(o.to_call)}`);
     cc.onclick = () => act(o.can_check ? 'check' : 'call');
     row.append(fold, cc);
     if (o.can_raise) {
       const label = o.is_bet ? 'Bet' : 'Raise to';
       const rb = el('button', 'btn act raise');
       const range = el('input'); range.type = 'range'; range.min = o.min_to; range.max = o.max_to; range.step = 1;
-      const num = el('input', 'num'); num.type = 'number'; num.inputMode = 'numeric'; num.min = o.min_to; num.max = o.max_to;
+      const num = el('input', 'num'); num.type = 'number';
       const upd = v => {
         v = Math.max(o.min_to, Math.min(o.max_to, Math.round(Number(v) || 0)));
-        range.value = v; num.value = v; rb.dataset.v = v;
-        rb.textContent = v === o.max_to ? `All in ${fmt(v)}` : `${label} ${fmt(v)}`;
+        range.value = v; num.value = t.unit === 'cents' ? toDollars(v, t.unit).toFixed(2) : v; rb.dataset.v = v;
+        rb.textContent = v === o.max_to ? `All in ${M(v)}` : `${label} ${M(v)}`;
       };
       range.oninput = () => upd(range.value);
-      num.onchange = () => upd(num.value);
+      num.step = t.unit === 'cents' ? 0.01 : 1; num.inputMode = t.unit === 'cents' ? 'decimal' : 'numeric';
+      num.onchange = () => upd(toChips(num.value, t.unit));
       const owe = o.current_bet - o.my_bet;
       const potTo = f => o.current_bet + f * (t.pot + owe);
       const presets = el('div', 'presets');
@@ -356,7 +401,7 @@ function buildMyControls(t) {
   const s = t.seats[t.me];
   if (s.leaving) { box.append(el('span', 'muted small', 'You\'ll be cashed out when this hand ends')); return; }
   const stand = el('button', 'btn ghost small', 'Stand up');
-  stand.onclick = () => { if (confirm(`Stand up and cash out ${fmt(s.stack + s.pending)}?`)) send({ type: 'stand' }); };
+  stand.onclick = () => { if (confirm(`Stand up and cash out ${M(s.stack + s.pending)}?`)) send({ type: 'stand' }); };
   const so = el('button', 'btn ghost small', s.sitting_out ? "I'm back" : 'Sit out');
   so.onclick = () => send({ type: 'sitout', value: !s.sitting_out });
   if (s.sitting_out) so.classList.replace('ghost', 'primary');
@@ -364,11 +409,13 @@ function buildMyControls(t) {
   const room = t.max_buy - s.stack - s.pending;
   if (room > 0) {
     const add = el('button', s.stack === 0 && !s.pending ? 'btn primary small' : 'btn ghost small', s.stack === 0 ? 'Rebuy' : 'Add chips');
-    add.onclick = () => formModal('Add chips', [{ key: 'amount', label: `Amount (up to ${fmt(room)})`, value: room, min: 1, max: room, full: true }],
-      'Add', v => send({ type: 'addchips', amount: v.amount }));
+    const u = t.unit, d = n => (u === 'cents' ? toDollars(n, u).toFixed(2) : n);
+    add.onclick = () => formModal('Add chips', [{ key: 'amount', label: `Amount in $ (up to ${M(room)})`, value: d(room),
+      min: d(1), max: d(room), step: u === 'cents' ? 0.01 : 1, full: true }],
+      'Add', v => send({ type: 'addchips', amount: toChips(v.amount, u) }));
     box.append(add);
   }
-  if (s.pending) box.append(el('span', 'muted small', `+${fmt(s.pending)} after this hand`));
+  if (s.pending) box.append(el('span', 'muted small', `+${M(s.pending)} after this hand`));
 }
 
 function botModal(i) {
@@ -392,8 +439,10 @@ function botModal(i) {
 
 function sitModal(i) {
   const t = S.table;
-  formModal(`Sit in seat ${i + 1}`, [{ key: 'buyin', label: `Buy-in (${fmt(t.min_buy)}–${fmt(t.max_buy)})`, value: t.max_buy, min: t.min_buy, max: t.max_buy, full: true }],
-    'Sit down', v => send({ type: 'sit', seat: i, buyin: v.buyin }));
+  const u = t.unit, d = n => (u === 'cents' ? toDollars(n, u).toFixed(2) : n);
+  formModal(`Sit in seat ${i + 1}`, [{ key: 'buyin', label: `Buy-in in $ (${M(t.min_buy)}–${M(t.max_buy)})`, value: d(t.max_buy),
+    min: d(t.min_buy), max: d(t.max_buy), step: u === 'cents' ? 0.01 : 1, full: true }],
+    'Sit down', v => send({ type: 'sit', seat: i, buyin: toChips(v.buyin, u) }));
 }
 
 function tick() {
@@ -442,10 +491,20 @@ $('#historyBtn').onclick = async () => {
 function setTheme(n) {
   n = ['1', '2', '3', '4'].includes(String(n)) ? String(n) : '1';
   $('#felt').dataset.theme = n;
-  document.querySelectorAll('#themePick button').forEach(b => b.classList.toggle('on', b.dataset.theme === n));
+  document.querySelectorAll('#themePick button[data-theme]').forEach(b => b.classList.toggle('on', b.dataset.theme === n));
   try { localStorage.setItem('hg_theme', n); } catch (e) { /* storage blocked: still works this visit */ }
 }
-document.querySelectorAll('#themePick button').forEach(b => b.onclick = () => setTheme(b.dataset.theme));
+document.querySelectorAll('#themePick button[data-theme]').forEach(b => b.onclick = () => setTheme(b.dataset.theme));
+function setRoom(n) {
+  n = ['1', '2', '3', '4'].includes(String(n)) ? String(n) : '1';
+  $('#tableView').dataset.room = n;
+  document.querySelectorAll('#themePick button[data-room]').forEach(b => b.classList.toggle('on', b.dataset.room === n));
+  try { localStorage.setItem('hg_room', n); } catch (e) { /* storage blocked: still works this visit */ }
+}
+document.querySelectorAll('#themePick button[data-room]').forEach(b => b.onclick = () => setRoom(b.dataset.room));
+let savedRoom = '1';
+try { savedRoom = localStorage.getItem('hg_room') || '1'; } catch (e) { /* ignore */ }
+setRoom(savedRoom);
 let savedTheme = '1';
 try { savedTheme = localStorage.getItem('hg_theme') || '1'; } catch (e) { /* ignore */ }
 setTheme(savedTheme);

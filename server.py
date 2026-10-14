@@ -95,13 +95,13 @@ def snapshot(r):
     if r.practice:
         return
     t = r.t
-    db.snapshot(t.id, t.name, [(s.name, in_play(s, t)) for s in t.seats if s])
+    db.snapshot(t.id, t.name, [(s.name, in_play(s, t) * t.cents_per_chip) for s in t.seats if s])
 
 
 def cash_out(r, s):
     amt = s.stack + s.pending_chips
     if amt > 0 and not r.practice:
-        db.add_ledger(s.name, r.t.id, r.t.name, "cashout", amt)
+        db.add_ledger(s.name, r.t.id, r.t.name, "cashout", amt * r.t.cents_per_chip)
 
 
 def ready(r):
@@ -136,7 +136,7 @@ def lobby_payload():
     inplay = {}
     for r in runners.values():
         t = r.t
-        tables.append(dict(id=t.id, name=t.name, sb=t.sb, bb=t.bb, min_buy=t.min_buy, max_buy=t.max_buy,
+        tables.append(dict(id=t.id, name=t.name, unit=t.unit, sb=t.sb, bb=t.bb, min_buy=t.min_buy, max_buy=t.max_buy,
                            max_seats=t.max_seats, timeout=t.timeout, creator=r.creator,
                            practice=r.practice, players=[s.name for s in t.seats if s],
                            humans=[s.name for s in t.seats if s and not is_bot(s)]))
@@ -144,7 +144,7 @@ def lobby_payload():
             continue
         for s in t.seats:
             if s:
-                inplay[s.name] = inplay.get(s.name, 0) + in_play(s, t)
+                inplay[s.name] = inplay.get(s.name, 0) + in_play(s, t) * t.cents_per_chip
     summary = db.ledger_summary()
     ledger = []
     for n in set(summary) | set(inplay):
@@ -297,8 +297,9 @@ async def create_table(c, m):
     seats = _int(m, "max_seats", "Seats", 2, 9)
     timeout = _int(m, "timeout", "Turn timer", 10, 120)
     practice = bool(m.get("practice"))
+    unit = "cents" if m.get("unit") == "cents" else "dollars"
     tid = secrets.token_urlsafe(5)
-    t = Table(tid, name, sb, bb, min_buy, max_buy, max_seats=seats, timeout=timeout)
+    t = Table(tid, name, sb, bb, min_buy, max_buy, max_seats=seats, timeout=timeout, unit=unit)
     runners[tid] = Runner(t, c.name, practice)
     db.save_table(tid, {**t.config(), "practice": practice}, c.name)
     await send(c, {"type": "created", "table_id": tid})
@@ -348,7 +349,7 @@ async def table_request(c, typ, m):
             buyin = _int(m, "buyin", "Buy-in", t.min_buy, t.max_buy)
             t.sit(c.name, c.name, seat, buyin)
             if not r.practice:
-                db.add_ledger(c.name, t.id, t.name, "buyin", buyin)
+                db.add_ledger(c.name, t.id, t.name, "buyin", buyin * t.cents_per_chip)
         elif typ == "action":
             t.act(c.name, m.get("action"), m.get("amount") or 0)
         elif typ == "stand":
@@ -361,7 +362,7 @@ async def table_request(c, typ, m):
             amt = _int(m, "amount", "Amount", 1, t.max_buy)
             t.add_chips(c.name, amt)
             if not r.practice:
-                db.add_ledger(c.name, t.id, t.name, "buyin", amt)
+                db.add_ledger(c.name, t.id, t.name, "buyin", amt * t.cents_per_chip)
         elif typ == "add_bot":
             if not r.practice:
                 raise TableError("Bots are only allowed at practice tables")

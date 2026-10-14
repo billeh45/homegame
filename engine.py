@@ -112,8 +112,10 @@ class Seat:
 
 
 class Table:
-    def __init__(self, tid, name, sb, bb, min_buy, max_buy, max_seats=9, timeout=30, rng=None):
+    def __init__(self, tid, name, sb, bb, min_buy, max_buy, max_seats=9, timeout=30, rng=None,
+                 unit="dollars"):
         self.id = tid
+        self.unit = "cents" if unit == "cents" else "dollars"   # 1 chip = $0.01 or $1
         self.name = name
         self.sb, self.bb = sb, bb
         self.min_buy, self.max_buy = min_buy, max_buy
@@ -139,7 +141,17 @@ class Table:
 
     def config(self):
         return dict(name=self.name, sb=self.sb, bb=self.bb, min_buy=self.min_buy,
-                    max_buy=self.max_buy, max_seats=self.max_seats, timeout=self.timeout)
+                    max_buy=self.max_buy, max_seats=self.max_seats, timeout=self.timeout,
+                    unit=self.unit)
+
+    def money(self, n):
+        if self.unit == "cents":
+            return f"${n / 100:,.2f}"
+        return f"${n:,}"
+
+    @property
+    def cents_per_chip(self):
+        return 1 if self.unit == "cents" else 100
 
     # ---- helpers
     def seat_index(self, pid):
@@ -192,7 +204,7 @@ class Table:
         if not (0 <= idx < self.max_seats) or self.seats[idx]:
             raise TableError("That seat is taken")
         if not (self.min_buy <= buyin <= self.max_buy):
-            raise TableError(f"Buy-in must be {self.min_buy}–{self.max_buy}")
+            raise TableError(f"Buy-in must be {self.money(self.min_buy)}–{self.money(self.max_buy)}")
         self.seats[idx] = Seat(pid, name, buyin)
 
     def stand(self, pid):
@@ -223,7 +235,7 @@ class Table:
         if amt <= 0:
             raise TableError("Enter a positive amount")
         if s.stack + s.pending_chips + amt > self.max_buy:
-            raise TableError(f"Max stack at this table is {self.max_buy}")
+            raise TableError(f"Max stack at this table is {self.money(self.max_buy)}")
         if self.hand_running and s.in_hand:
             s.pending_chips += amt
         else:
@@ -256,11 +268,11 @@ class Table:
         else:
             sb = self._next_in(self.button, elig)
             bb = self._next_in(sb, elig)
-        self.log = [f"Hand #{self.hand_no} — {self.name} (NLH {self.sb}/{self.bb})",
+        self.log = [f"Hand #{self.hand_no} — {self.name} (NLH {self.money(self.sb)}/{self.money(self.bb)})",
                     f"Button: {self.seats[self.button].name}"]
         for i in elig:
             s = self.seats[i]
-            self.log.append(f"Seat {i + 1}: {s.name} ({s.stack})")
+            self.log.append(f"Seat {i + 1}: {s.name} ({self.money(s.stack)})")
         self._post(sb, self.sb, "SB")
         self._post(bb, self.bb, "BB")
         order, j = [], self.button
@@ -281,7 +293,7 @@ class Table:
         s = self.seats[i]
         amt = self._put(i, amount)
         s.last_action = label
-        self.log.append(f"{s.name} posts {label} {amt}" + (" and is all in" if s.stack == 0 else ""))
+        self.log.append(f"{s.name} posts {label} {self.money(amt)}" + (" and is all in" if s.stack == 0 else ""))
 
     def _find_next(self, from_idx):
         for k in range(1, self.max_seats + 1):
@@ -324,7 +336,7 @@ class Table:
             amt = self._put(i, owe)
             s.has_acted = True
             s.last_action = "Call"
-            self.log.append(f"{s.name} calls {amt}" + (" and is all in" if s.stack == 0 else ""))
+            self.log.append(f"{s.name} calls {self.money(amt)}" + (" and is all in" if s.stack == 0 else ""))
         elif action in ("bet", "raise"):
             if not s.can_raise or s.stack <= owe:
                 raise TableError("You can't raise here")
@@ -335,7 +347,7 @@ class Table:
                 raise TableError("Enter a raise amount")
             min_to = self.current_bet + self.min_raise
             if target <= self.current_bet or (target < min_to and target < max_to):
-                raise TableError(f"Minimum is {min(min_to, max_to)}")
+                raise TableError(f"Minimum is {self.money(min(min_to, max_to))}")
             size = target - self.current_bet
             is_bet = self.current_bet == 0
             self._put(i, target - s.bet)
@@ -356,8 +368,8 @@ class Table:
                 self.min_raise = size
             self.current_bet = target
             s.has_acted = True
-            s.last_action = ("Bet " if is_bet else "Raise ") + str(target)
-            self.log.append(f"{s.name} {'bets' if is_bet else 'raises to'} {target}"
+            s.last_action = ("Bet " if is_bet else "Raise ") + self.money(target)
+            self.log.append(f"{s.name} {'bets' if is_bet else 'raises to'} {self.money(target)}"
                             + (" and is all in" if s.stack == 0 else ""))
         else:
             raise TableError("Unknown action")
@@ -402,7 +414,7 @@ class Table:
             s.bet -= ex
             s.contrib -= ex
             s.stack += ex
-            self.log.append(f"Uncalled bet ({ex}) returned to {s.name}")
+            self.log.append(f"Uncalled bet ({self.money(ex)}) returned to {s.name}")
 
     def _end_round(self):
         self._return_uncalled()
@@ -459,7 +471,7 @@ class Table:
         s.stack += pot
         s.won = pot
         self.current = None
-        self.log.append(f"{s.name} wins {pot}")
+        self.log.append(f"{s.name} wins {self.money(pot)}")
         self.results = [{"amount": pot, "winners": [s.name], "seats": [w], "hand": None}]
         self._end_hand()
 
@@ -514,7 +526,7 @@ class Table:
             if len(pots) == 1:
                 label = "the pot"
             verb = "split" if len(winners) > 1 else "wins"
-            self.log.append(f"{' & '.join(names)} {verb} {label} ({amount}) with {describe(top)}")
+            self.log.append(f"{' & '.join(names)} {verb} {label} ({self.money(amount)}) with {describe(top)}")
             results.append({"amount": amount, "winners": names, "seats": winners,
                             "hand": describe(top), "cards": scores[winners[0]][1]})
         self.results = results
@@ -551,7 +563,7 @@ class Table:
                 "bot": str(s.pid).startswith("bot:"),
             })
         v = {
-            "id": self.id, "name": self.name, "sb": self.sb, "bb": self.bb,
+            "id": self.id, "name": self.name, "unit": self.unit, "sb": self.sb, "bb": self.bb,
             "min_buy": self.min_buy, "max_buy": self.max_buy, "max_seats": self.max_seats,
             "hand_no": self.hand_no, "hand_running": self.hand_running, "street": self.street,
             "board": list(self.board), "button": self.button if self.hand_no else None,

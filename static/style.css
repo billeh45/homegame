@@ -199,3 +199,49 @@ label input { margin-top: 4px; }
   }
   #felt[data-theme="4"]::before { background-position: center, center 48%; }
 }
+
+/* ---- dollars / cents toggle */
+.seg-row { margin-bottom: 12px; }
+.seg-label { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.seg { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.seg-btn { flex: 1; padding: 9px 6px; border: 0; background: #0b100d; color: var(--muted); font: inherit; font-weight: 700;
+  font-size: 13px; cursor: pointer; white-space: pre; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--line); }
+.seg-btn.on { background: var(--accent); color: #062014; }
+
+/* ---- room backgrounds (toggle: Room 1-4, per device) */
+#tableView { min-height: 100vh; }
+.pick-gap { margin-left: 10px; }
+#tableView[data-room="2"] {           /* Casino: burgundy carpet */
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(0,0,0,0) 30%, rgba(0,0,0,.55) 100%),
+    repeating-linear-gradient(45deg, rgba(240,190,90,.07) 0 2px, transparent 2px 26px),
+    repeating-linear-gradient(-45deg, rgba(240,190,90,.07) 0 2px, transparent 2px 26px),
+    radial-gradient(circle at 13px 13px, rgba(240,190,90,.12) 0 3px, transparent 4px) 0 0 / 26px 26px,
+    #4a0f18;
+}
+#tableView[data-room="3"] {           /* Den: wood paneling */
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(255,190,110,.10) 0%, rgba(0,0,0,0) 45%, rgba(0,0,0,.6) 100%),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 2px, transparent 2px 90px),
+    repeating-linear-gradient(90deg, rgba(255,220,170,.035) 0 7px, rgba(0,0,0,.04) 7px 15px, transparent 15px 23px),
+    linear-gradient(180deg, #3b2414, #2a170c);
+}
+#tableView[data-room="4"] {           /* Vegas: neon night */
+  background:
+    radial-gradient(ellipse at 12% 18%, rgba(255,45,170,.30), transparent 40%),
+    radial-gradient(ellipse at 88% 22%, rgba(0,210,255,.26), transparent 40%),
+    radial-gradient(ellipse at 50% 100%, rgba(140,70,255,.32), transparent 55%),
+    radial-gradient(circle at 20px 20px, rgba(255,255,255,.05) 0 1.5px, transparent 2px) 0 0 / 40px 40px,
+    #0c0a1d;
+}
+#tableView[data-room="4"] .felt::before { box-shadow: inset 0 0 40px rgba(0,0,0,.55), 0 0 30px rgba(255,45,170,.35), 0 0 60px rgba(0,210,255,.18); }
+#tableView:not([data-room="1"]) .topbar { background: rgba(10,12,11,.82); backdrop-filter: blur(6px); }
+#tableView:not([data-room="1"]) .action-bar { background: linear-gradient(rgba(0,0,0,0), rgba(8,8,10,.88) 22%); }
+#tableView:not([data-room="1"]) .tab:not(.active) { color: #c9d3cc; }
+#tableView:not([data-room="1"]) .my-controls .muted, #tableView:not([data-room="1"]) .theme-pick .muted { color: #d6ddd8; }
+@media (max-width: 480px) {
+  .theme-pick { gap: 4px; }
+  .theme-pick button { width: 27px; height: 26px; font-size: 12px; }
+  .pick-gap { margin-left: 6px; }
+}

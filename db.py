@@ -23,6 +23,26 @@ CREATE INDEX IF NOT EXISTS hands_by_table ON hands(table_id, id);
 CREATE TABLE IF NOT EXISTS seated(table_id TEXT, table_name TEXT, name TEXT, stack INTEGER,
     PRIMARY KEY(table_id, name));
 """)
+_db.execute("CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT)")
+
+
+def _migrate():
+    """v2: ledger and seated stacks are stored in cents (they used to be whole-dollar chips)."""
+    row = _db.execute("SELECT value FROM meta WHERE key='schema'").fetchone()
+    if row and int(row["value"]) >= 2:
+        return
+    _db.execute("BEGIN IMMEDIATE")
+    try:
+        _db.execute("UPDATE ledger SET amount = amount * 100")
+        _db.execute("UPDATE seated SET stack = stack * 100")
+        _db.execute("INSERT OR REPLACE INTO meta VALUES('schema', '2')")
+        _db.execute("COMMIT")
+    except Exception:
+        _db.execute("ROLLBACK")
+        raise
+
+
+_migrate()
 
 
 def _hash(pw, salt):
@@ -53,6 +73,7 @@ def user_for_token(token):
 
 # ---- ledger
 def add_ledger(name, table_id, table_name, kind, amount):
+    """amount is in cents."""
     _db.execute("INSERT INTO ledger(name, table_id, table_name, kind, amount, ts) VALUES(?,?,?,?,?,?)",
                 (name, table_id, table_name, kind, int(amount), time.time()))
 
