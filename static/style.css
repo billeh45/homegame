@@ -245,3 +245,18 @@ label input { margin-top: 4px; }
   .theme-pick button { width: 27px; height: 26px; font-size: 12px; }
   .pick-gap { margin-left: 6px; }
 }
+
+.felt[data-theme="5"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/5.jpg);
+  background-position: center, center 40%;
+}
+.felt[data-theme="6"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/6.jpg);
+  background-position: center, center 35%;
+}
+@media (max-aspect-ratio: 1/1) {        /* tall phone table: show the whole wide photo, felt above/below */
+  #felt[data-theme="6"]::before { background-size: cover, 100% auto; background-position: center, center 50%; background-color: #134d33; }
+}
+@media (max-width: 480px) {
+  .theme-pick { flex-wrap: wrap; row-gap: 6px; }
+}
