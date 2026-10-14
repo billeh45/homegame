@@ -232,7 +232,7 @@ $('#newTableBtn').onclick = () => formModal('New cash table', [
   { key: 'min_buy', label: 'Min buy-in ($)', value: 40, min: 1 },
   { key: 'max_buy', label: 'Max buy-in ($)', value: 200, min: 1 },
   { key: 'max_seats', label: 'Seats (2–9)', value: 9, min: 2, max: 9 },
-  { key: 'timeout', label: 'Turn timer (sec)', value: 30, min: 10, max: 120 },
+  { key: 'timeout', label: 'Turn timer (sec)', value: 60, min: 15, max: 300 },
   { key: 'practice', type: 'checkbox', label: 'Practice table', value: false,
     hint: 'Allows bots. Chips here never count on the ledger.' },
 ], 'Create', v => {

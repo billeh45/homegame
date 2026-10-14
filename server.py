@@ -22,6 +22,8 @@ from engine import Table, TableError
 
 ROOM_CODE = os.environ.get("ROOM_CODE", "changeme")
 MAX_TABLES = 20
+MIN_TURN = 60          # existing tables with a shorter timer are raised to this on startup
+DISCONNECT_GRACE = 60  # extra seconds, once per turn, when the player to act has lost connection
 BASE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(BASE, "static")
 NAME_RE = re.compile(r"[A-Za-z0-9 _\-]{2,16}")
@@ -36,6 +38,7 @@ class Runner:
         self.practice = practice      # practice tables allow bots and never touch the ledger
         self.bot_styles = {}          # bot pid -> style
         self.bot_task = None
+        self.turn_len = None           # length of the current turn incl. any disconnect grace
         self.bot_key = None
         self.lock = asyncio.Lock()
         self.timer_task = None
@@ -66,6 +69,9 @@ async def lifespan(app):
             db.add_ledger(row["name"], row["table_id"], row["table_name"], "cashout", row["stack"])
     for tid, cfg, creator in db.load_tables():
         practice = bool(cfg.pop("practice", False))
+        if cfg.get("timeout", 30) < MIN_TURN:
+            cfg["timeout"] = MIN_TURN
+            db.save_table(tid, {**cfg, "practice": practice}, creator)
         t = Table(tid, **cfg)
         t.hand_no = db.max_hand_no(tid)
         runners[tid] = Runner(t, creator, practice)
@@ -120,7 +126,7 @@ async def send(c, msg):
 def view_msg(r, name):
     v = r.t.view(name)
     v["time_left"] = max(0.0, r.deadline - time.time()) if r.deadline else None
-    v["timeout"] = r.t.timeout
+    v["timeout"] = r.turn_len or r.t.timeout
     v["practice"] = r.practice
     return {"type": "table", "table": v}
 
@@ -179,13 +185,15 @@ async def after_change(r):
             cancel(r.timer_task)
             r.timer_key = key
             r.deadline = time.time() + t.timeout
-            r.timer_task = asyncio.create_task(turn_timer(r, key))
+            r.turn_len = t.timeout
+            r.timer_task = asyncio.create_task(turn_timer(r, key, t.timeout))
         if is_bot(t.seats[t.current]) and r.bot_key != key:
             r.bot_key = key
             r.bot_task = asyncio.create_task(bot_turn(r, key))
     else:
         cancel(r.timer_task)
         r.timer_task = r.timer_key = r.deadline = None
+        r.turn_len = None
     if not t.hand_running:
         for s in t.seats:                       # bots rebuy and never sit out
             if s and is_bot(s):
@@ -213,13 +221,27 @@ async def after_change(r):
     await broadcast_lobby()
 
 
-async def turn_timer(r, key):
+def connected(name):
+    return any(c.name == name for c in conns)
+
+
+async def turn_timer(r, key, delay, extended=False):
     try:
-        await asyncio.sleep(r.t.timeout)
+        await asyncio.sleep(delay)
     except asyncio.CancelledError:
         return
     async with r.lock:
         if r.timer_key != key:
+            return
+        t = r.t
+        s = t.seats[t.current] if t.current is not None else None
+        if s and not extended and not is_bot(s) and not connected(s.pid):
+            # They dropped (crash, signal loss): give them one extra stretch to reconnect.
+            t.log.append(f"{s.name} disconnected — waiting {DISCONNECT_GRACE}s more")
+            r.deadline = time.time() + DISCONNECT_GRACE
+            r.turn_len = t.timeout + DISCONNECT_GRACE
+            r.timer_task = asyncio.create_task(turn_timer(r, key, DISCONNECT_GRACE, extended=True))
+            await broadcast_table(r)
             return
         r.timer_task = r.timer_key = None
         r.t.timeout_current()
@@ -295,7 +317,7 @@ async def create_table(c, m):
     min_buy = _int(m, "min_buy", "Min buy-in", bb, 100_000_000)
     max_buy = _int(m, "max_buy", "Max buy-in", min_buy, 100_000_000)
     seats = _int(m, "max_seats", "Seats", 2, 9)
-    timeout = _int(m, "timeout", "Turn timer", 10, 120)
+    timeout = _int(m, "timeout", "Turn timer", 15, 300) if m.get("timeout") not in (None, "") else MIN_TURN
     practice = bool(m.get("practice"))
     unit = "cents" if m.get("unit") == "cents" else "dollars"
     tid = secrets.token_urlsafe(5)
