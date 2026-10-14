@@ -24,6 +24,8 @@ ROOM_CODE=letsplay uvicorn server:app --reload
 ```
 Run the engine tests: `python tests/test_engine.py`
 
+Check the shuffle is fair (deals 1,000,000 hands through the real engine and compares against exact poker odds; needs `pip install numpy scipy`): `python tests/fairness_check.py`
+
 ## Deploy on Render (simplest)
 1. Push this folder to a GitHub repo.
 2. In Render: **New → Blueprint**, pick the repo. It reads `render.yaml`.
