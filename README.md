@@ -9,6 +9,9 @@ A Donkhouse-style web app: a lobby of cash tables, real-time play in the browser
 - **Stand up / sit out / add chips / rebuy**. Standing mid-hand folds you and cashes you out when the hand ends.
 - **Bet sizing**: Min, ½, ¾, Pot, All-in presets plus slider. Pre-action "Check / Fold" box.
 - **Chat**, current-hand log, and saved **hand history**.
+- **Your hand** shown in words under the table ("Pocket Queens", "Two Pair, Kings and Fives"), updated as the board comes.
+- **Show cards**: after a hand you weren't required to show (you won uncontested, or folded), tap Show cards to flip them for the table; it's noted in the hand history.
+- **Turn sound**: a chime when it's your turn and two beeps at 10 seconds left; the tab title also says "Your turn!". Toggle with the Sound button (per device).
 - **Practice tables with bots**: tick "Practice table" when creating a table, then tap **+ Bot** on any empty seat (Rock = tight, Shark = balanced, Maniac = loose/aggressive). Bots rebuy automatically, hands only deal while a human is seated, and practice chips never touch the ledger.
 - **Dollars or cents**: pick when creating a table — whole-dollar stakes ($1/$2) or cents ($0.10/$0.25). Everything shows as money, and the ledger adds both kinds together.
 - **Looks**: each player picks a table design (Table 1–6) and a room background (Room 1–4: Dark, Casino, Den, Vegas); it's remembered on their device.

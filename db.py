@@ -109,6 +109,10 @@ def save_hand(tid, hand_no, log):
     _db.execute("INSERT INTO hands(table_id, hand_no, log, ts) VALUES(?,?,?,?)", (tid, hand_no, log, time.time()))
 
 
+def update_hand_log(tid, hand_no, log):
+    _db.execute("UPDATE hands SET log=? WHERE table_id=? AND hand_no=?", (log, tid, hand_no))
+
+
 def recent_hands(tid, limit=30):
     rows = _db.execute("SELECT hand_no, log, ts FROM hands WHERE table_id=? ORDER BY id DESC LIMIT ?",
                        (tid, limit)).fetchall()

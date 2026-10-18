@@ -82,6 +82,18 @@ def describe(score):
     return f"{RNAME[v[0]]} High"
 
 
+def hand_label(hole, board):
+    """What a player holds right now, in words: 'Pocket Queens', 'Ace-King suited', 'Two Pair, ...'."""
+    if len(hole) != 2:
+        return None
+    if len(board) >= 3:
+        return describe(best_hand(hole + board)[0])
+    a, b = sorted(hole, key=lambda c: RV[c[0]], reverse=True)
+    if a[0] == b[0]:
+        return f"Pocket {_pl(RV[a[0]])}"
+    return f"{RNAME[RV[a[0]]]}-{RNAME[RV[b[0]]]} {'suited' if a[1] == b[1] else 'offsuit'}"
+
+
 # ---------------------------------------------------------------- table
 
 class Seat:
@@ -105,6 +117,7 @@ class Seat:
         self.last_action = ""
         self.won = 0
         self.auto = None              # None | "fold" | "checkfold"
+        self.shown = False            # chose to show their cards after the hand
 
     @property
     def all_in(self):
@@ -542,6 +555,18 @@ class Table:
                 self.leavers.append(s)
                 self.seats[i] = None
 
+    def show_cards(self, pid):
+        """After a hand ends, a player who was dealt in may reveal their hole cards to the table."""
+        s = self._seat(pid)
+        if self.hand_running:
+            raise TableError("You can show your cards once the hand is over")
+        if not (s.in_hand and s.hole) or s.shown:
+            raise TableError("Nothing to show")
+        if self.reveal_all and not s.folded:
+            raise TableError("Your cards are already face up")
+        s.shown = True
+        self.log.append(f"{s.name} shows {' '.join(s.hole)}")
+
     # ---- what one viewer is allowed to see
     def view(self, pid):
         me = self.seat_index(pid)
@@ -552,15 +577,15 @@ class Table:
                 continue
             mine = s.pid == pid
             cards = []
-            if s.hole and s.in_hand and (not s.folded or mine):
-                show = mine or (not s.folded and self.reveal_all)
+            if s.hole and s.in_hand and (not s.folded or mine or s.shown):
+                show = mine or s.shown or (not s.folded and self.reveal_all)
                 cards = list(s.hole) if show else ["??", "??"]
             seats.append({
                 "name": s.name, "stack": s.stack, "bet": s.bet, "folded": s.folded,
                 "all_in": s.all_in, "in_hand": s.in_hand, "sitting_out": s.sitting_out,
                 "last_action": s.last_action, "cards": cards, "is_you": mine,
                 "leaving": s.leave_after_hand, "pending": s.pending_chips,
-                "bot": str(s.pid).startswith("bot:"),
+                "bot": str(s.pid).startswith("bot:"), "shown": s.shown,
             })
         v = {
             "id": self.id, "name": self.name, "unit": self.unit, "sb": self.sb, "bb": self.bb,
@@ -571,7 +596,14 @@ class Table:
             "action_seq": self.action_seq, "pot": self.pot_total(),
             "results": None if self.hand_running else self.results,
             "me": me, "seats": seats, "log": self.log[-80:], "options": None,
+            "my_hand": None, "can_show": False,
         }
+        if me is not None:
+            ms = self.seats[me]
+            if ms.in_hand and ms.hole:
+                v["my_hand"] = hand_label(ms.hole, self.board)
+                v["can_show"] = (not self.hand_running and not ms.shown
+                                 and not (self.reveal_all and not ms.folded))
         if me is not None and self.hand_running and self.current == me:
             s = self.seats[me]
             owe = self.current_bet - s.bet

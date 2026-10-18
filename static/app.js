@@ -257,12 +257,50 @@ function cardEl(c, big) {
   e.append(el('span', 'r', c[0] === 'T' ? '10' : c[0]), el('span', 's', SUIT[c[1]]));
   return e;
 }
-function seatPos(i, t, rx, ry) {
+function seatPos(i, t, rx, ry, dth = 0) {
   const n = t.max_seats, off = t.me != null ? t.me : 0;
   const k = ((i - off) % n + n) % n;
-  const th = Math.PI / 2 + 2 * Math.PI * k / n;      // viewer sits at the bottom
+  const th = Math.PI / 2 + 2 * Math.PI * k / n + dth;  // viewer sits at the bottom; dth slides along the rail
   return [50 + rx * Math.cos(th), 50 + ry * Math.sin(th)];
 }
+// Bets and the dealer button go to the first nearby spot that doesn't cover cards, names, the pot
+// or another chip — table layouts differ a lot between phones and laptops, so we measure rather than guess.
+function placeClear(elem, cands, avoid) {
+  const felt = $('#felt');
+  felt.append(elem);
+  const boxes = avoid.map(e => e.getBoundingClientRect()).filter(r => r.width);
+  let best = null, bestArea = Infinity;
+  for (const [x, y] of cands) {
+    elem.style.left = x + '%'; elem.style.top = y + '%';
+    const r = elem.getBoundingClientRect();
+    let area = 0;
+    for (const o of boxes) {
+      const w = Math.min(r.right, o.right + 3) - Math.max(r.left, o.left - 3);
+      const h = Math.min(r.bottom, o.bottom + 3) - Math.max(r.top, o.top - 3);
+      if (w > 0 && h > 0) area += w * h;
+    }
+    if (area === 0) return;
+    if (area < bestArea) { bestArea = area; best = [x, y]; }
+  }
+  elem.style.left = best[0] + '%'; elem.style.top = best[1] + '%';
+}
+function placeChips(t, R, chips) {
+  const avoid = [...document.querySelectorAll('#felt .plate, #felt .seat .card, #felt .seat .btn, #felt .status, #board .card, #pot, #result')];
+  for (const [i, amount] of chips) {
+    const b = el('div', 'bet', M(amount));
+    const cands = [];
+    for (const f of [0.6, 0.68, 0.52, 0.76]) for (const d of [0, 0.12, -0.12, 0.22, -0.22]) cands.push(seatPos(i, t, R[0] * f, R[1] * f * 0.92, d));
+    placeClear(b, cands, avoid);
+    avoid.push(b);
+  }
+  if (t.button != null && t.seats[t.button]) {
+    const b = el('div', 'dealer', 'D');
+    const side = Math.min(0.42, 2.6 / t.max_seats), cands = [];
+    for (const [fx, fy] of [[0.80, 0.78], [0.70, 0.68], [0.62, 0.6]]) for (const d of [-side, side, -side * 0.6, side * 0.6]) cands.push(seatPos(t.button, t, R[0] * fx, R[1] * fy, d));
+    placeClear(b, cands, avoid);
+  }
+}
+
 function clearFelt() {
   document.querySelectorAll('#felt .seat, #felt .bet, #felt .dealer').forEach(e => e.remove());
   for (const id of ['#board', '#actionBar', '#myControls']) $(id).innerHTML = '';
@@ -280,6 +318,7 @@ function renderTable() {
   const winners = new Set();
   if (t.results) t.results.forEach(r => r.seats.forEach(i => winners.add(i)));
 
+  const chips = [];
   t.seats.forEach((s, i) => {
     const [x, y] = seatPos(i, t, R[0], R[1]);
     const d = el('div', 'seat');
@@ -291,7 +330,7 @@ function renderTable() {
       felt.append(d); return;
     }
     if (s.is_you) d.classList.add('me');
-    if (s.folded) d.classList.add('folded');
+    if (s.folded && !s.shown) d.classList.add('folded');
     if (t.current === i) d.classList.add('active');
     if (winners.has(i)) d.classList.add('winner');
     if (s.sitting_out && !s.in_hand) d.classList.add('away');
@@ -317,23 +356,21 @@ function renderTable() {
     else if (s.stack === 0 && !s.in_hand) status = 'Busted';
     if (status) d.append(el('div', 'status', status));
     felt.append(d);
-    if (s.bet > 0) {
-      const [bx, by] = seatPos(i, t, R[0] * 0.6, R[1] * 0.55);
-      const b = el('div', 'bet', M(s.bet)); b.style.left = bx + '%'; b.style.top = by + '%'; felt.append(b);
-    }
-    if (t.button === i) {
-      const [dx, dy] = seatPos(i, t, R[0] * 0.72, R[1] * 0.68);
-      const b = el('div', 'dealer', 'D'); b.style.left = (dx + 6) + '%'; b.style.top = dy + '%'; felt.append(b);
-    }
+    if (s.bet > 0 && t.hand_running) chips.push([i, s.bet]);   // chips are swept to the winner when the hand ends
   });
 
   const board = $('#board'); board.innerHTML = '';
   for (let k = 0; k < 5; k++) board.append(t.board[k] ? cardEl(t.board[k]) : el('div', 'card slot'));
-  $('#pot').textContent = t.pot > 0 ? `Pot ${M(t.pot)}` : '';
+  $('#pot').textContent = t.pot > 0 && t.hand_running ? `Pot ${M(t.pot)}` : '';
   $('#result').textContent = t.results
     ? t.results.map(r => `${r.winners.join(' & ')} ${r.winners.length > 1 ? 'split' : 'wins'} ${M(r.amount)}${r.hand ? ' — ' + r.hand : ''}`).join('\n')
     : '';
+  placeChips(t, R, chips);
   const log = $('#handLog'); log.textContent = t.log.join('\n'); log.scrollTop = log.scrollHeight;
+  const mh = $('#myHand');
+  mh.classList.toggle('hidden', !t.my_hand);
+  mh.textContent = t.my_hand ? `Your hand: ${t.my_hand}` : '';
+  document.title = t.options ? 'Your turn! — Home Game' : 'Home Game';
 
   if (t.hand_no !== S.preFoldHand) S.preFold = false;
   const key = t.options ? `${t.hand_no}:${t.action_seq}` : null;
@@ -353,6 +390,8 @@ function buildActionBar(t) {
   if (o) {
     if (S.preFold && S.preFoldHand === t.hand_no) { S.preFold = false; act(o.can_check ? 'check' : 'fold'); return; }
     if (navigator.vibrate) navigator.vibrate(60);
+    playSound('turn');
+    S.warned = false;
     const row = el('div', 'act-row');
     const fold = el('button', 'btn act fold', 'Fold'); fold.onclick = () => act('fold');
     const cc = o.can_check ? el('button', 'btn act check', 'Check') : el('button', 'btn act call', `Call ${M(o.to_call)}`);
@@ -385,6 +424,12 @@ function buildActionBar(t) {
       row.append(rb);
     }
     bar.append(row);
+    return;
+  }
+  if (t.can_show) {
+    const b = el('button', 'btn show-btn', 'Show cards');
+    b.onclick = () => { send({ type: 'show' }); b.disabled = true; };
+    bar.append(b);
     return;
   }
   if (me && t.hand_running && me.in_hand && !me.folded && !me.all_in) {
@@ -456,6 +501,7 @@ function tick() {
     const frac = Math.max(0, S.deadline - performance.now()) / (S.timeout * 1000);
     f.style.width = (frac * 100) + '%';
     f.classList.toggle('low', frac < 0.3);
+    if (S.table && S.table.options && !S.warned && S.deadline - performance.now() < 10000) { S.warned = true; playSound('hurry'); }
   }
   requestAnimationFrame(tick);
 }
@@ -513,6 +559,40 @@ setRoom(savedRoom);
 let savedTheme = '1';
 try { savedTheme = localStorage.getItem('hg_theme') || '1'; } catch (e) { /* ignore */ }
 setTheme(savedTheme);
+
+// ------------------------------------------------------------ sounds (per device, on by default)
+let audioCtx = null;
+let soundOn = true;
+try { soundOn = localStorage.getItem('hg_sound') !== 'off'; } catch (e) { /* ignore */ }
+function unlockAudio() {           // browsers only allow sound after the first tap/click on the page
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+document.addEventListener('pointerdown', unlockAudio);
+document.addEventListener('keydown', unlockAudio);
+function tone(freq, start, dur, vol) {
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'sine'; o.frequency.value = freq;
+  const t0 = audioCtx.currentTime + start;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(audioCtx.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+function playSound(kind) {
+  if (!soundOn || !audioCtx || audioCtx.state !== 'running') return;
+  if (kind === 'turn') { tone(660, 0, 0.18, 0.25); tone(880, 0.16, 0.28, 0.25); }   // rising two-note chime
+  else { tone(520, 0, 0.12, 0.3); tone(520, 0.18, 0.12, 0.3); }                    // two quick beeps: 10s left
+}
+function renderSoundBtn() {
+  const b = $('#soundBtn'); b.textContent = soundOn ? 'Sound on' : 'Sound off'; b.classList.toggle('on', soundOn);
+}
+$('#soundBtn').onclick = () => {
+  soundOn = !soundOn; renderSoundBtn();
+  try { localStorage.setItem('hg_sound', soundOn ? 'on' : 'off'); } catch (e) { /* ignore */ }
+  unlockAudio(); if (soundOn) playSound('turn');      // preview
+};
+renderSoundBtn();
 
 // ------------------------------------------------------------ boot
 if (S.token) connect();

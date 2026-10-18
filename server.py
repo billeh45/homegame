@@ -220,9 +220,9 @@ async def after_change(r):
         r.empty_since = time.time()      # idle-close countdown starts when the last person leaves
     if not t.hand_running and r.next_task is None and ready(r):
         if t.results and any(x.get("hand") for x in t.results):
-            delay = 4.5      # let people see the showdown
+            delay = 5        # let people see the showdown
         elif t.results:
-            delay = 2
+            delay = 4        # time to tap "Show cards" after an uncontested pot
         else:
             delay = 1
         r.next_task = asyncio.create_task(next_hand(r, delay))
@@ -411,6 +411,9 @@ async def table_request(c, typ, m):
             s = t.stand(c.name)
             if s:
                 cash_out(r, s)
+        elif typ == "show":
+            t.show_cards(c.name)
+            db.update_hand_log(t.id, t.hand_no, "\n".join(t.log))
         elif typ == "sitout":
             t.set_sitting_out(c.name, bool(m.get("value")))
         elif typ == "addchips":
