@@ -23,6 +23,7 @@ from engine import Table, TableError
 ROOM_CODE = os.environ.get("ROOM_CODE", "changeme")
 MAX_TABLES = 20
 MIN_TURN = 60          # existing tables with a shorter timer are raised to this on startup
+IDLE_CLOSE = 30 * 60    # an empty table (no humans seated) closes itself after this long
 DISCONNECT_GRACE = 60  # extra seconds, once per turn, when the player to act has lost connection
 BASE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(BASE, "static")
@@ -38,7 +39,8 @@ class Runner:
         self.practice = practice      # practice tables allow bots and never touch the ledger
         self.bot_styles = {}          # bot pid -> style
         self.bot_task = None
-        self.turn_len = None           # length of the current turn incl. any disconnect grace
+        self.turn_len = None
+        self.empty_since = None        # when the last human left (None while someone is seated)           # length of the current turn incl. any disconnect grace
         self.bot_key = None
         self.lock = asyncio.Lock()
         self.timer_task = None
@@ -75,7 +77,9 @@ async def lifespan(app):
         t = Table(tid, **cfg)
         t.hand_no = db.max_hand_no(tid)
         runners[tid] = Runner(t, creator, practice)
+    sweeper = asyncio.create_task(idle_sweeper())
     yield
+    sweeper.cancel()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -145,6 +149,7 @@ def lobby_payload():
         tables.append(dict(id=t.id, name=t.name, unit=t.unit, sb=t.sb, bb=t.bb, min_buy=t.min_buy, max_buy=t.max_buy,
                            max_seats=t.max_seats, timeout=t.timeout, creator=r.creator,
                            practice=r.practice, players=[s.name for s in t.seats if s],
+                           closes_at=(r.empty_since + IDLE_CLOSE) if r.empty_since else None,
                            humans=[s.name for s in t.seats if s and not is_bot(s)]))
         if r.practice:
             continue
@@ -209,6 +214,10 @@ async def after_change(r):
         r.bot_styles.pop(s.pid, None)
         cash_out(r, s)
     snapshot(r)
+    if has_humans(r):
+        r.empty_since = None
+    elif r.empty_since is None:
+        r.empty_since = time.time()      # idle-close countdown starts when the last person leaves
     if not t.hand_running and r.next_task is None and ready(r):
         if t.results and any(x.get("hand") for x in t.results):
             delay = 4.5      # let people see the showdown
@@ -324,27 +333,51 @@ async def create_table(c, m):
     t = Table(tid, name, sb, bb, min_buy, max_buy, max_seats=seats, timeout=timeout, unit=unit)
     runners[tid] = Runner(t, c.name, practice)
     db.save_table(tid, {**t.config(), "practice": practice}, c.name)
+    runners[tid].empty_since = time.time()
     await send(c, {"type": "created", "table_id": tid})
     await broadcast_lobby()
+
+
+def has_humans(r):
+    return any(s and not is_bot(s) for s in r.t.seats)
+
+
+async def remove_table(r):
+    for task in (r.timer_task, r.runout_task, r.next_task, r.bot_task):
+        cancel(task)
+    runners.pop(r.t.id, None)
+    db.delete_table(r.t.id)
+    for x in list(conns):
+        if x.table_id == r.t.id:
+            x.table_id = None
+            await send(x, {"type": "table_closed", "table_id": r.t.id})
+    await broadcast_lobby(force=True)
+
+
+async def idle_sweeper():
+    """Close tables that have had nobody (bots aside) seated for IDLE_CLOSE seconds."""
+    while True:
+        await asyncio.sleep(60)
+        now = time.time()
+        for r in list(runners.values()):
+            async with r.lock:
+                if has_humans(r):
+                    r.empty_since = None
+                    continue
+                if r.empty_since is None:
+                    r.empty_since = now
+                    continue
+                if now - r.empty_since >= IDLE_CLOSE and r.t.id in runners:
+                    await remove_table(r)
 
 
 async def close_table(c, m):
     r = runners.get(m.get("table_id"))
     if not r:
         raise TableError("No such table")
-    if r.creator != c.name:
-        raise TableError("Only the table's creator can close it")
-    if any(s and not is_bot(s) for s in r.t.seats):
+    if has_humans(r):
         raise TableError("Everyone has to stand up first")
-    for task in (r.timer_task, r.runout_task, r.next_task, r.bot_task):
-        cancel(task)
-    del runners[r.t.id]
-    db.delete_table(r.t.id)
-    for x in list(conns):
-        if x.table_id == r.t.id:
-            x.table_id = None
-            await send(x, {"type": "table_closed", "table_id": r.t.id})
-    await broadcast_lobby()
+    await remove_table(r)
 
 
 async def table_request(c, typ, m):

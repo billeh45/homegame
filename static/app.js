@@ -110,6 +110,7 @@ function route() {
   }
 }
 window.addEventListener('hashchange', route);
+setInterval(() => { if (!S.tableId && S.lobby) renderLobby(); }, 30000);   // keep idle countdowns fresh
 $('#backBtn').onclick = () => { location.hash = ''; };
 
 // ------------------------------------------------------------ modal helpers
@@ -192,7 +193,11 @@ function renderLobby() {
     const open = el('button', 'btn primary small', 'Open');
     open.onclick = () => { location.hash = '#t=' + encodeURIComponent(t.id); };
     btns.append(open);
-    if (t.creator === S.name && !(t.humans || t.players).length) {
+    if (!(t.humans || t.players).length) {
+      if (t.closes_at) {
+        const mins = Math.max(1, Math.ceil((t.closes_at * 1000 - Date.now()) / 60000));
+        info.append(el('div', 'muted small', `Empty — closes in ${mins} min unless someone sits`));
+      }
       const x = el('button', 'btn ghost small', 'Close');
       x.onclick = () => { if (confirm(`Close "${t.name}"?`)) send({ type: 'close_table', table_id: t.id }); };
       btns.append(x);

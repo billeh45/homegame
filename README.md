@@ -3,7 +3,7 @@
 A Donkhouse-style web app: a lobby of cash tables, real-time play in the browser (phone or desktop), and a running ledger so everyone settles up afterward. No real money moves through it — chips are tracked, you square up among yourselves.
 
 ## What's in it
-- **Lobby**: anyone can open a table (blinds, buy-in range, 2–9 seats, turn timer). The creator can close it once it's empty.
+- **Lobby**: anyone can open a table (blinds, buy-in range, 2–9 seats, turn timer). Anyone can close an empty table, and a table with nobody seated (bots don't count) closes itself after 30 minutes.
 - **Table**: NLHE with correct blinds (incl. heads-up), min-raise rules, short all-in raises that don't reopen action, side pots, split pots / odd chips, uncalled bets returned, all-in runouts.
 - **Turn timer** (default 60s, up to 5 min): time out → auto check/fold, and you're sat out until you tap "I'm back". If the player to act has lost connection (crash, bad signal), they get one extra 60s to reconnect first.
 - **Stand up / sit out / add chips / rebuy**. Standing mid-hand folds you and cashes you out when the hand ends.
