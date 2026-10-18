@@ -13,7 +13,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 import bots
@@ -541,9 +541,17 @@ async def healthz():
     return {"ok": True}
 
 
+BUILD = str(int(time.time()))   # changes on every deploy/restart
+
+
 @app.get("/")
 async def index():
-    return FileResponse(os.path.join(STATIC, "index.html"), headers={"Cache-Control": "no-cache"})
+    # Stamp the script and stylesheet links with this build, so browsers fetch fresh copies
+    # after an update instead of running a cached old version (no hard refresh needed).
+    with open(os.path.join(STATIC, "index.html"), encoding="utf-8") as f:
+        html = f.read()
+    html = html.replace("/static/app.js", f"/static/app.js?v={BUILD}").replace("/static/style.css", f"/static/style.css?v={BUILD}")
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
