@@ -64,10 +64,18 @@
     </div>
     <div id="myHand" class="my-hand hidden"></div>
     <div class="theme-pick" id="themePick">
-      <span class="muted small">Table</span>
-      <button data-theme="1">1</button><button data-theme="2">2</button><button data-theme="3">3</button><button data-theme="4">4</button><button data-theme="5">5</button><button data-theme="6">6</button>
-      <span class="muted small pick-gap">Room</span>
-      <button data-room="1" title="Dark">1</button><button data-room="2" title="Casino">2</button><button data-room="3" title="Den">3</button><button data-room="4" title="Vegas">4</button>
+      <label class="pick"><span class="muted small">Table</span>
+        <select id="themeSel">
+          <option value="1">1 · Green felt</option><option value="2">2</option><option value="3">3</option>
+          <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+          <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+        </select></label>
+      <label class="pick"><span class="muted small">Room</span>
+        <select id="roomSel">
+          <option value="1">Dark</option><option value="2">Casino</option><option value="3">Den</option>
+          <option value="4">Vegas</option><option value="5">Rainbow</option><option value="6">Sunset</option>
+          <option value="7">Galaxy</option>
+        </select></label>
       <button id="soundBtn" class="sound-btn" title="Turn sound">Sound on</button>
     </div>
     <div id="actionBar" class="action-bar"></div>

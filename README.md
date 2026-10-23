@@ -14,7 +14,7 @@ A Donkhouse-style web app: a lobby of cash tables, real-time play in the browser
 - **Turn sound**: a chime when it's your turn and two beeps at 10 seconds left; the tab title also says "Your turn!". Toggle with the Sound button (per device).
 - **Practice tables with bots**: tick "Practice table" when creating a table, then tap **+ Bot** on any empty seat (Rock = tight, Shark = balanced, Maniac = loose/aggressive). Bots rebuy automatically, hands only deal while a human is seated, and practice chips never touch the ledger.
 - **Dollars or cents**: pick when creating a table — whole-dollar stakes ($1/$2) or cents ($0.10/$0.25). Everything shows as money, and the ledger adds both kinds together.
-- **Looks**: each player picks a table design (Table 1–6) and a room background (Room 1–4: Dark, Casino, Den, Vegas); it's remembered on their device.
+- **Looks**: each player picks a table design (Table 1–9) and a room background (Dark, Casino, Den, Vegas, Rainbow, Sunset, Galaxy) from two dropdowns under the table; it's remembered on their device.
 - **Ledger**: buy-ins, cash-outs, chips on table, net per player (in dollars and cents). "Mark settled" zeroes it once everyone's standing.
 - Hole cards are dealt server-side and only sent to their owner (and to everyone at showdown / all-in).
 - If the server restarts mid-session, everyone seated is cashed out at their stack from the start of that hand, so the ledger stays balanced.

@@ -539,20 +539,20 @@ $('#historyBtn').onclick = async () => {
 };
 
 // ------------------------------------------------------------ table design toggle (per device)
+// Options come from the dropdowns in index.html, so adding a design there is all it takes.
+const optionValues = sel => [...$(sel).options].map(o => o.value);
 function setTheme(n) {
-  n = ['1', '2', '3', '4', '5', '6'].includes(String(n)) ? String(n) : '1';
-  $('#felt').dataset.theme = n;
-  document.querySelectorAll('#themePick button[data-theme]').forEach(b => b.classList.toggle('on', b.dataset.theme === n));
+  n = optionValues('#themeSel').includes(String(n)) ? String(n) : '1';
+  $('#felt').dataset.theme = n; $('#themeSel').value = n;
   try { localStorage.setItem('hg_theme', n); } catch (e) { /* storage blocked: still works this visit */ }
 }
-document.querySelectorAll('#themePick button[data-theme]').forEach(b => b.onclick = () => setTheme(b.dataset.theme));
+$('#themeSel').onchange = e => setTheme(e.target.value);
 function setRoom(n) {
-  n = ['1', '2', '3', '4'].includes(String(n)) ? String(n) : '1';
-  $('#tableView').dataset.room = n;
-  document.querySelectorAll('#themePick button[data-room]').forEach(b => b.classList.toggle('on', b.dataset.room === n));
+  n = optionValues('#roomSel').includes(String(n)) ? String(n) : '1';
+  $('#tableView').dataset.room = n; $('#roomSel').value = n;
   try { localStorage.setItem('hg_room', n); } catch (e) { /* storage blocked: still works this visit */ }
 }
-document.querySelectorAll('#themePick button[data-room]').forEach(b => b.onclick = () => setRoom(b.dataset.room));
+$('#roomSel').onchange = e => setRoom(e.target.value);
 let savedRoom = '1';
 try { savedRoom = localStorage.getItem('hg_room') || '1'; } catch (e) { /* ignore */ }
 setRoom(savedRoom);

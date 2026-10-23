@@ -269,3 +269,59 @@ label input { margin-top: 4px; }
   background: #2b2a14; border-color: #5c5622; color: #ffe18c; }
 .sound-btn { width: auto !important; padding: 0 8px !important; margin-left: 10px; }
 .sound-btn.on { color: var(--text) !important; }
+
+/* ---- table / room dropdowns */
+.pick { display: inline-flex; align-items: center; gap: 6px; margin: 0 4px; }
+.pick select { font: inherit; font-size: 13px; font-weight: 700; color: var(--text); background: var(--panel2);
+  border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; cursor: pointer; }
+.pick select:focus { outline: 2px solid rgba(62,207,142,.4); }
+@media (max-width: 480px) { .theme-pick { gap: 8px; } .pick { margin: 0; } }
+
+/* ---- table designs 7-9 */
+.felt[data-theme="7"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/7.jpg);
+  background-position: center, center 55%;
+}
+.felt[data-theme="8"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/8.jpg);
+  background-position: center, 62% 22%;
+}
+.felt[data-theme="9"]::before {
+  background-image: radial-gradient(ellipse at center, rgba(0,0,0,.15) 35%, rgba(0,0,0,.55) 100%), url(/static/tables/9.jpg);
+  background-position: center, center 30%;
+}
+.felt[data-theme="7"]::before, .felt[data-theme="8"]::before, .felt[data-theme="9"]::before {
+  background-size: cover; background-repeat: no-repeat; background-color: #1b6845;
+}
+
+/* ---- rooms 5-7 */
+#tableView[data-room="5"] {           /* Rainbow */
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(0,0,0,.05) 25%, rgba(0,0,0,.45) 100%),
+    linear-gradient(180deg, #e63946 0%, #f77f00 17%, #fcbf49 33%, #43aa8b 50%, #277da1 67%, #4d4fc9 83%, #9b5de5 100%);
+}
+@media (min-aspect-ratio: 1/1) {      /* wide screens: run the bands left to right so all seven show */
+  #tableView[data-room="5"] {
+    background:
+      radial-gradient(ellipse at 50% 40%, rgba(0,0,0,.05) 25%, rgba(0,0,0,.45) 100%),
+      linear-gradient(90deg, #e63946 0%, #f77f00 17%, #fcbf49 33%, #43aa8b 50%, #277da1 67%, #4d4fc9 83%, #9b5de5 100%);
+  }
+  #felt[data-theme="8"]::before { background-position: center, 60% 0%; }
+}
+#tableView[data-room="6"] {           /* Sunset over the water */
+  background:
+    radial-gradient(ellipse at 50% 58%, rgba(255,214,120,.55) 0 6%, rgba(255,150,80,.25) 14%, transparent 34%),
+    linear-gradient(180deg, #2b1745 0%, #7b2d6b 26%, #e2575b 46%, #f7a35c 56%, #1f3b5a 58%, #0f2238 100%);
+}
+#tableView[data-room="7"] {           /* Galaxy */
+  background:
+    radial-gradient(circle at 12px 18px, rgba(255,255,255,.9) 0 1px, transparent 1.5px) 0 0 / 97px 83px,
+    radial-gradient(circle at 40px 60px, rgba(255,255,255,.6) 0 1px, transparent 1.5px) 0 0 / 61px 71px,
+    radial-gradient(circle at 25px 30px, rgba(200,220,255,.5) 0 .8px, transparent 1.2px) 0 0 / 43px 47px,
+    radial-gradient(ellipse at 25% 30%, rgba(140,60,220,.45), transparent 45%),
+    radial-gradient(ellipse at 80% 70%, rgba(40,120,220,.40), transparent 50%),
+    radial-gradient(ellipse at 60% 15%, rgba(220,60,140,.25), transparent 40%),
+    #05040f;
+}
+#tableView[data-room="5"] .felt::before { box-shadow: inset 0 0 40px rgba(0,0,0,.55), 0 0 0 3px rgba(255,255,255,.25), 0 10px 30px rgba(0,0,0,.5); }
+#tableView[data-room="7"] .felt::before { box-shadow: inset 0 0 40px rgba(0,0,0,.55), 0 0 40px rgba(140,90,255,.35); }
