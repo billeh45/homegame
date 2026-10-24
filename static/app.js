@@ -456,13 +456,14 @@ function buildMyControls(t) {
   so.onclick = () => send({ type: 'sitout', value: !s.sitting_out });
   if (s.sitting_out) so.classList.replace('ghost', 'primary');
   box.append(stand, so);
-  const room = t.max_buy - s.stack - s.pending;
-  if (room > 0) {
-    const add = el('button', s.stack === 0 && !s.pending ? 'btn primary small' : 'btn ghost small', s.stack === 0 ? 'Rebuy' : 'Add chips');
+  // No topping up: chips can only be added as a rebuy once you're out of chips, between hands.
+  const busted = s.stack === 0 && !s.pending && !(t.hand_running && s.in_hand);
+  if (busted) {
+    const add = el('button', 'btn primary small', 'Rebuy');
     const u = t.unit, d = n => (u === 'cents' ? toDollars(n, u).toFixed(2) : n);
-    add.onclick = () => formModal('Add chips', [{ key: 'amount', label: `Amount in $ (up to ${M(room)})`, value: d(room),
-      min: d(1), max: d(room), step: u === 'cents' ? 0.01 : 1, full: true }],
-      'Add', v => send({ type: 'addchips', amount: toChips(v.amount, u) }));
+    add.onclick = () => formModal('Rebuy', [{ key: 'amount', label: `Rebuy in $ (${M(t.min_buy)}–${M(t.max_buy)})`, value: d(t.max_buy),
+      min: d(t.min_buy), max: d(t.max_buy), step: u === 'cents' ? 0.01 : 1, full: true }],
+      'Rebuy', v => send({ type: 'addchips', amount: toChips(v.amount, u) }));
     box.append(add);
   }
   if (s.pending) box.append(el('span', 'muted small', `+${M(s.pending)} after this hand`));

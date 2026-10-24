@@ -416,8 +416,15 @@ async def table_request(c, typ, m):
             db.update_hand_log(t.id, t.hand_no, "\n".join(t.log))
         elif typ == "sitout":
             t.set_sitting_out(c.name, bool(m.get("value")))
-        elif typ == "addchips":
-            amt = _int(m, "amount", "Amount", 1, t.max_buy)
+        elif typ == "addchips":                      # rebuy only: allowed once you're out of chips
+            i = t.seat_index(c.name)
+            s = t.seats[i] if i is not None else None
+            if not s or s.stack > 0 or s.pending_chips or (t.hand_running and s.in_hand):
+                raise TableError("You can only rebuy once you're out of chips")
+            try:
+                amt = _int(m, "amount", "Rebuy", t.min_buy, t.max_buy)
+            except TableError:
+                raise TableError(f"Rebuy must be {t.money(t.min_buy)}–{t.money(t.max_buy)}")
             t.add_chips(c.name, amt)
             if not r.practice:
                 db.add_ledger(c.name, t.id, t.name, "buyin", amt * t.cents_per_chip)
